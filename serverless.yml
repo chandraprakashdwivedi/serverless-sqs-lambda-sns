@@ -1,57 +1,110 @@
-service: serverless-sqs-lambda-sns
+service: test-sls # NOTE: update this with your service name
+#awsKmsKeyArn: arn:aws:kms:us-east-1:XXXXXX:key/some-hash
 
 provider:
   name: aws
-  stage: ${opt:stage, 'dev'}
-  runtime: java8
-  region: eu-west-1
-  memorySize: 1024
-  timeout: 120
+  runtime: python3.6
+  versionFunctions: false
+  #role: arn:aws:iam::12345:role/LambdaRole #For roles based login
+  stage: dev
+  region: ap-south-1
+  #notificationArns:
+   #   - 'arn:aws:sns:ap-south-1:XXXXXX:mytopic'
 
-  environment:
-      sqsUrl:
-        Ref: SQSQueue
-      snsArn:
-        Ref: SNSTopic
-
-  iamRoleStatements:
-      - Effect: Allow
-        Action:
-          - sqs:*
-        Resource:
-          Fn::GetAtt: [ SQSQueue, Arn ]
-      - Effect: Allow
-        Action:
-          - sns:Publish
-          - sns:CreateTopic
-        Resource: { "Fn::Join" : ["", ["arn:aws:sns:${self:provider.region}:", { "Ref" : "AWS::AccountId" }, ":${self:resources.Resources.SNSTopic.Properties.TopicName}" ] ]  }
-
-package:
-  artifact: target/serverless-sqs-lambda-sns-1.0.0.jar
+# you can add packaging information here
+#package:
+#  include:
+#    - include-me.py
+#    - include-me-dir/**
+#  exclude:
+#    - exclude-me.py
+#    - exclude-me-dir/**
 
 functions:
-  dequeue:
-    handler: com.example.Handler
+  s3bucket:
+    handler: lambda_functions/s3bucket.hello
+    memorySize: 128
+    description: My function
+    #onError: arn:aws:sns:ap-south-1:XXXXXX:mytopic
     events:
-      - schedule: rate(2 minutes)
+        - http:
+            path: first-endpoint
+            method: GET
+            cors: true
+       # - sns:
+        #    topicName: ${self:service}-${self:provider.stage}-topic
+         #   displayName: SNSTopic
+##  list:
+##    handler: lambda_functions/get_all_responses.list_responses
+##    events:
+##      - http:
+##          path: lambda_functions
+##          method: get
+##          cors: true
+##  delete:
+##    handler: lambda_functions/delete_response.delete
+##    events:
+##      - http:
+##          path: lambda_functions/{app_name}
+##          method: delete
+##          cors: true
+##  insert:
+##    handler: lambda_functions/insert_response.insert
+##    events:
+##      - http:
+##          path: lambda_functions
+##          method: post
+##          cors: true
+##  evaluate:
+##    handler: lambda_functions/evaluate_response.evaluate
+##    events:
+##      - http:
+##          path: lambda_functions/{app_name}
+##          method: get
+##          cors: true
 
 resources:
   Resources:
+      uploadBucket:
+          Type: AWS::S3::Bucket
+          Properties:
+              BucketName: ${self:service}-${self:provider.stage}-uploads
+      SQSQueue:
+          Type: AWS::SQS::Queue
+          Properties:
+            QueueName: ${self:service}-${self:provider.stage}-queue
+      SNSTopic:
+          Type: AWS::SNS::Topic
+          Properties:
+            DisplayName: SNSTopic
+            TopicName: ${self:service}-${self:provider.stage}-topic
+           # Subscription:
+            #    - Protocol: SQS
+             #     Endpoint: { “Fn::Join” : [“”, [“arn:aws:sqs:${self:provider.region}:“, { “Ref” : “AWS::AccountId” }, “:${self:resources.Resources.SQSQueue.Properties.QueueName}” ] ] }
+             # - Protocol: lambda
+              #  Endpoint: { “Fn::Join” : [“”, [“arn:aws:lambda:${self:provider.region}:“, { “Ref” : “AWS::AccountId” }, :functions, ${self:service}-${self:provider.stage}-${self:functions.usersCreate} ] ] }
+      SNSSubscription:
+          Type: AWS::SNS::Subscription
+          Properties:
+              Endpoint: chandra.prakash363@gmail.com
+              Protocol: email
+              TopicArn: { "Fn::Join" : ["", ["arn:aws:sns:${self:provider.region}:", { "Ref" : "AWS::AccountId" }, ":${self:resources.Resources.SNSTopic.Properties.TopicName}" ] ]  }
 
-    SQSQueue:
-      Type: AWS::SQS::Queue
-      Properties:
-        QueueName: ${self:service}-${self:provider.stage}-queue
-
-    SNSTopic:
-      Type: AWS::SNS::Topic
-      Properties:
-        DisplayName: SNS Topic
-        TopicName: ${self:service}-${self:provider.stage}-topic
-
-    SNSSubscription:
-      Type: AWS::SNS::Subscription
-      Properties:
-          Endpoint: email@provider.com
-          Protocol: email
-          TopicArn: { "Fn::Join" : ["", ["arn:aws:sns:${self:provider.region}:", { "Ref" : "AWS::AccountId" }, ":${self:resources.Resources.SNSTopic.Properties.TopicName}" ] ]  }
+                
+#    TestDynamoDbTable:
+#      Type: 'AWS::DynamoDB::Table'
+#      DeletionPolicy: Retain
+#      Properties:
+#        AttributeDefinitions:
+#          -
+#            AttributeName: app_name
+#            AttributeType: S
+#        KeySchema:
+#          -
+#            AttributeName: app_name
+#            KeyType: HASH
+#        ProvisionedThroughput:
+#          ReadCapacityUnits: 1
+#          WriteCapacityUnits: 1
+#        TableName: ${self:service}-${self:provider.stage}-table1
+      
